@@ -990,3 +990,176 @@
   .issue-recommendation strong {
     color: var(--accent-primary);
   }
+/* ============================================
+   Car Selector
+   ============================================ */
+
+.car-selector {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.car-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+  color: var(--text-primary);
+}
+
+.car-option:hover {
+  border-color: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.car-option.selected {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px var(--accent-primary), 0 4px 12px rgba(249, 115, 22, 0.15);
+}
+
+.car-image {
+  width: 100%;
+  height: 56px;
+  object-fit: contain;
+}
+
+.car-image-placeholder {
+  width: 100%;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--accent-primary);
+  background: var(--bg-secondary);
+  border-radius: 8px;
+}
+
+.car-option-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.car-option-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.car-option-category {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ============================================
+   Collapsible setup cards
+   ============================================ */
+
+.input-section.collapsible {
+  padding: 0;
+  overflow: hidden;
+}
+
+.section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 1.25rem 1.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.section-toggle .section-title {
+  margin: 0;
+}
+
+.section-chevron {
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.input-section.collapsible.open .section-chevron {
+  transform: rotate(180deg);
+}
+
+.section-body {
+  padding: 0 1.5rem 1.5rem;
+}
+
+/* ============================================
+   AI car recognition
+   ============================================ */
+
+.car-identify-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.identify-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-color);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.identify-button:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+.identify-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.identify-button .button-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.identify-result {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+}
+
+.identify-result.ok {
+  color: var(--success);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.identify-result.err {
+  color: var(--warning);
+  background: rgba(245, 158, 11, 0.1);
+}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import SetupInputs from './components/SetupInputs';
+import CarSelector from './components/CarSelector';
 import DiagnosisReport from './components/DiagnosisReport';
 import ModelViewer from './components/ModelViewer';
 import TelemetryAnalysis from './components/TelemetryAnalysis';
@@ -13,6 +14,9 @@ function App() {
   const [isOnline, setIsOnline] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
+  // Selected car category (drives which parameters apply and the AI context)
+  const [carClass, setCarClass] = useState('hypercar');
+
   // Setup state
   const [setup, setSetup] = useState({
     front_ride_height_mm: 45,
@@ -21,7 +25,13 @@ function App() {
     rear_wing_angle_deg: 15,
     brake_bias_percent: 52,
     hybrid_deployment_map: 1,
-    tire_pressure: { fl: 1.9, fr: 1.9, rl: 1.9, rr: 1.9 }
+    tire_pressure: { fl: 1.9, fr: 1.9, rl: 1.9, rr: 1.9 },
+    // Advanced setup
+    coast_diff_percent: 40,
+    rear_camber_deg: -3.0,
+    front_wheel_rate_nmm: 200,
+    rear_wheel_rate_nmm: 180,
+    final_drive_ratio: 3.6
   });
   
   // Driver feedback state
@@ -39,7 +49,9 @@ function App() {
     track_temp_c: 35,
     fuel_load_kg: 60,
     stint_lap: 15,
-    time_of_day: 'day'
+    time_of_day: 'day',
+    track_type: 'mixed',
+    session_type: 'race'
   });
   
   // Diagnosis result
@@ -59,16 +71,27 @@ function App() {
     checkAPIHealth();
   }, []);
   
+  // The rule engine responds in ~1ms; hold the analyzing state long enough
+  // that the spinner is actually perceivable
+  const MIN_ANALYSIS_MS = 900;
+
   const analyzeSetup = async () => {
     setIsAnalyzing(true);
-    
+    const startedAt = Date.now();
+
     try {
       const response = await axios.post(`${API_URL}/diagnose`, {
+        car_class: carClass,
         setup,
         driver_feedback: feedback,
         conditions
       });
-      
+
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < MIN_ANALYSIS_MS) {
+        await new Promise((resolve) => setTimeout(resolve, MIN_ANALYSIS_MS - elapsed));
+      }
+
       setDiagnosis(response.data);
       setActiveTab('results');
     } catch (error) {
@@ -147,7 +170,10 @@ function App() {
           <div className="input-layout">
             {/* Left Column: Inputs */}
             <div className="input-column">
+              <CarSelector value={carClass} onChange={setCarClass} apiUrl={API_URL} />
+
               <SetupInputs
+                carClass={carClass}
                 setup={setup}
                 feedback={feedback}
                 conditions={conditions}
@@ -185,7 +211,7 @@ function App() {
             <div className="model-column">
               <div className="model-card">
                 <h3 className="model-title">3D Viewport</h3>
-                <ModelViewer />
+                <ModelViewer carClass={carClass} />
               </div>
             </div>
           </div>
