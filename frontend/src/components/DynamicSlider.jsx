@@ -11,31 +11,19 @@ export default function DynamicSlider({
   centerZero = false  // If true, 0 is neutral, +/- values change color
 }) {
   
-  // Calculate color based on value
+  // Calculate color based on value (minimal palette: graphite fill for
+  // plain sliders; muted amber/blue for zero-centered feedback sliders)
   const getSliderColor = () => {
     if (!centerZero) {
-      // Normal slider - orange gradient
       return 'var(--accent-primary)';
     }
-    
-    // Zero-centered slider - color changes with positive/negative
+
     if (value > 0) {
-      // Positive = red/orange intensity
-      const intensity = Math.abs(value) / max;
-      const r = 255;
-      const g = Math.floor(115 * (1 - intensity * 0.5));
-      const b = Math.floor(22 * (1 - intensity));
-      return `rgb(${r}, ${g}, ${b})`;
+      return '#b45309'; // muted amber — positive side
     } else if (value < 0) {
-      // Negative = blue/cyan
-      const intensity = Math.abs(value) / Math.abs(min);
-      const r = Math.floor(59 * (1 - intensity * 0.5));
-      const g = Math.floor(130 * (1 - intensity * 0.3));
-      const b = 255;
-      return `rgb(${r}, ${g}, ${b})`;
+      return '#1d4ed8'; // muted blue — negative side
     } else {
-      // Zero = neutral gray
-      return '#6b7280';
+      return '#b3b3ad'; // neutral at zero
     }
   };
   
@@ -46,7 +34,6 @@ export default function DynamicSlider({
     } else {
       // For zero-centered, calculate from center
       const range = max - min;
-      const center = (max + min) / 2;
       return ((value - min) / range) * 100;
     }
   };
@@ -54,12 +41,12 @@ export default function DynamicSlider({
   const sliderColor = getSliderColor();
   const fillPercentage = getFillPercentage();
   
-  // Create gradient for slider track
-  const trackGradient = `linear-gradient(to right, 
-    ${centerZero ? '#2e2e55' : sliderColor} 0%, 
-    ${sliderColor} ${fillPercentage}%, 
-    #14142a ${fillPercentage}%, 
-    #14142a 100%)`;
+  // Create gradient for slider track (light theme: unfilled = hairline gray)
+  const trackGradient = `linear-gradient(to right,
+    ${centerZero ? '#e7e7e4' : sliderColor} 0%,
+    ${sliderColor} ${fillPercentage}%,
+    #e7e7e4 ${fillPercentage}%,
+    #e7e7e4 100%)`;
   
   return (
     <div className="dynamic-slider-container">

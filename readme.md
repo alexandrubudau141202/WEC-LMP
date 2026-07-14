@@ -76,10 +76,17 @@ wec-lmp-diagnostic/
 ```bash
 cd backend
 pip install -r requirements.txt
+
+# Optional: enable the AI Race Engineer debrief (free key from https://console.groq.com)
+export GROQ_API_KEY=gsk_...
+
 uvicorn main:app --reload
 ```
 
 Backend runs on: `http://localhost:8000`
+
+Without `GROQ_API_KEY` the app still works — the diagnosis falls back to the
+template-based executive summary and the AI debrief section is simply hidden.
 
 ### Frontend
 ```bash

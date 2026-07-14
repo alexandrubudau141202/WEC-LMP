@@ -2,57 +2,130 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import SetupInputs from './components/SetupInputs';
 import CarSelector from './components/CarSelector';
+import TrackSelector from './components/TrackSelector';
+import StintSimulator from './components/StintSimulator';
+import { DEFAULT_CAR_ID, getCar } from './cars';
+import { DEFAULT_TRACK_ID, getTrack } from './tracks';
 import DiagnosisReport from './components/DiagnosisReport';
 import ModelViewer from './components/ModelViewer';
 import TelemetryAnalysis from './components/TelemetryAnalysis';
+import SavedSetups from './components/SavedSetups';
+import LapTimePrediction from './components/LapTimePrediction';
+import ReferenceLaps from './components/ReferenceLaps';
+import usePersistentState, { mergeWithDefaults } from './usePersistentState';
 import './App.css';
 
 const API_URL = 'http://localhost:8000';
+
+// Defaults for the persisted input state. Stored values are merged over
+// these on load, so adding/removing fields here stays backward-compatible
+// with whatever an older visit left in localStorage.
+const DEFAULT_SETUP = {
+  front_ride_height_mm: 45,
+  rear_ride_height_mm: 50,
+  front_wing_angle_deg: 8,
+  rear_wing_angle_deg: 15,
+  brake_bias_percent: 52,
+  hybrid_deployment_map: 1,
+  tire_pressure: { fl: 1.9, fr: 1.9, rl: 1.9, rr: 1.9 },
+  // Advanced setup
+  coast_diff_percent: 40,
+  rear_camber_deg: -3.0,
+  front_wheel_rate_nmm: 200,
+  rear_wheel_rate_nmm: 180,
+  final_drive_ratio: 3.6
+};
+
+const DEFAULT_FEEDBACK = {
+  understeer: 0,
+  oversteer: 0,
+  brake_stability: 0,
+  hybrid_feel: 0,
+  corner_phase: 'all',
+  speed_range: 'all'
+};
+
+const DEFAULT_CONDITIONS = {
+  track_temp_c: 35,
+  fuel_load_kg: 60,
+  stint_lap: 15,
+  time_of_day: 'day',
+  track_type: 'mixed',
+  session_type: 'race'
+};
 
 function App() {
   const [activeTab, setActiveTab] = useState('input');
   const [isOnline, setIsOnline] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  
-  // Selected car category (drives which parameters apply and the AI context)
-  const [carClass, setCarClass] = useState('hypercar');
 
-  // Setup state
-  const [setup, setSetup] = useState({
-    front_ride_height_mm: 45,
-    rear_ride_height_mm: 50,
-    front_wing_angle_deg: 8,
-    rear_wing_angle_deg: 15,
-    brake_bias_percent: 52,
-    hybrid_deployment_map: 1,
-    tire_pressure: { fl: 1.9, fr: 1.9, rl: 1.9, rr: 1.9 },
-    // Advanced setup
-    coast_diff_percent: 40,
-    rear_camber_deg: -3.0,
-    front_wheel_rate_nmm: 200,
-    rear_wheel_rate_nmm: 180,
-    final_drive_ratio: 3.6
-  });
-  
-  // Driver feedback state
-  const [feedback, setFeedback] = useState({
-    understeer: 0,
-    oversteer: 0,
-    brake_stability: 0,
-    hybrid_feel: 0,
-    corner_phase: 'all',
-    speed_range: 'all'
-  });
-  
-  // Track conditions state
-  const [conditions, setConditions] = useState({
-    track_temp_c: 35,
-    fuel_load_kg: 60,
-    stint_lap: 15,
-    time_of_day: 'day',
-    track_type: 'mixed',
-    session_type: 'race'
-  });
+  // Whether input state is saved to localStorage. The preference itself is
+  // always remembered so an opt-out sticks across visits.
+  const [saveSetups, setSaveSetups] = usePersistentState('wec-lmp:save-setups', true);
+
+  // Selected car (class + physics profile + 3D model derive from the registry).
+  // The four input states survive page reloads while saving is enabled.
+  const [carId, setCarId] = usePersistentState('wec-lmp:car', DEFAULT_CAR_ID, saveSetups);
+  const car = getCar(carId);
+  const carClass = car.carClass;
+
+  // Selected track (drives the simulator and the conditions' track character)
+  const [trackId, setTrackId] = usePersistentState('wec-lmp:track', DEFAULT_TRACK_ID, saveSetups);
+
+  const [setup, setSetup] = usePersistentState('wec-lmp:setup', DEFAULT_SETUP, saveSetups);
+  const [feedback, setFeedback] = usePersistentState('wec-lmp:feedback', DEFAULT_FEEDBACK, saveSetups);
+
+  // Was a driver actually in the car? Off = sterile test: the feedback
+  // sliders are hidden and the diagnosis runs on neutral driver feedback.
+  const [driverInCar, setDriverInCar] = usePersistentState('wec-lmp:driver-in-car', true, saveSetups);
+  const [conditions, setConditions] = usePersistentState('wec-lmp:conditions', DEFAULT_CONDITIONS, saveSetups);
+
+  const toggleSaveSetups = (on) => {
+    setSaveSetups(on);
+    if (!on) {
+      // Opting out also wipes what's already stored — next reload starts clean
+      ['wec-lmp:car', 'wec-lmp:track', 'wec-lmp:setup', 'wec-lmp:feedback', 'wec-lmp:conditions', 'wec-lmp:driver-in-car']
+        .forEach((key) => localStorage.removeItem(key));
+    }
+  };
+
+  // Picking a track also aligns the conditions' track character, so the
+  // diagnosis, prediction and simulator all reason about the same circuit
+  const selectTrack = (track) => {
+    setTrackId(track.id);
+    if (track.trackType && track.trackType !== conditions.track_type) {
+      setConditions({ ...conditions, track_type: track.trackType });
+    }
+  };
+
+  // Named setup snapshots (car + setup + conditions). Explicit saves, so
+  // they persist regardless of the auto-save toggle.
+  const [savedSetups, setSavedSetups] = usePersistentState('wec-lmp:saved-setups', []);
+
+  // meta = { name, track, trackTemp, airTemp, dateModified } from the save form
+  const saveNamedSetup = (meta) => {
+    const entry = {
+      id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      ...meta,
+      carId,
+      setup,
+      conditions,
+      savedAt: new Date().toISOString(),
+    };
+    setSavedSetups([entry, ...savedSetups].slice(0, 30)); // newest first, cap at 30
+  };
+
+  const loadNamedSetup = (entry) => {
+    setCarId(entry.carId); // getCar() falls back if the car left the registry
+    // Merge over defaults so presets saved under an older parameter schema
+    // still load cleanly after the app gains/loses setup fields
+    setSetup(mergeWithDefaults(DEFAULT_SETUP, entry.setup));
+    setConditions(mergeWithDefaults(DEFAULT_CONDITIONS, entry.conditions));
+  };
+
+  const deleteNamedSetup = (id) => {
+    setSavedSetups(savedSetups.filter((s) => s.id !== id));
+  };
   
   // Diagnosis result
   const [diagnosis, setDiagnosis] = useState(null);
@@ -82,8 +155,10 @@ function App() {
     try {
       const response = await axios.post(`${API_URL}/diagnose`, {
         car_class: carClass,
+        car_name: car.name,
         setup,
-        driver_feedback: feedback,
+        // Sterile test (no driver in the car): diagnose on neutral feedback
+        driver_feedback: driverInCar ? feedback : DEFAULT_FEEDBACK,
         conditions
       });
 
@@ -115,8 +190,8 @@ function App() {
               </svg>
             </div>
             <div>
-              <h1 className="logo-title">WEC LMP Diagnostic</h1>
-              <p className="logo-subtitle">AI-Powered Setup Analysis · Porsche 963 · WEC / IMSA</p>
+              <h1 className="logo-title">EnduranceAi Setups</h1>
+              {/*<p className="logo-subtitle"></p>*/}
             </div>
           </div>
         </div>
@@ -142,6 +217,18 @@ function App() {
           Input Scenario
         </button>
         <button
+          className={`tab-button ${activeTab === 'simulate' ? 'active' : ''}`}
+          onClick={() => setActiveTab('simulate')}
+        >
+          <svg className="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Simulate
+        </button>
+        <button
           className={`tab-button ${activeTab === 'results' ? 'active' : ''}`}
           onClick={() => setActiveTab('results')}
           disabled={!diagnosis}
@@ -162,26 +249,61 @@ function App() {
           </svg>
           Telemetry
         </button>
+        <button
+          className={`tab-button ${activeTab === 'reference' ? 'active' : ''}`}
+          onClick={() => setActiveTab('reference')}
+        >
+          <svg className="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Reference Laps
+        </button>
       </nav>
       
       {/* Main Content */}
       <main className="main-content">
         {activeTab === 'input' ? (
           <div className="input-layout">
-            {/* Left Column: Inputs */}
-            <div className="input-column">
-              <CarSelector value={carClass} onChange={setCarClass} apiUrl={API_URL} />
+            {/* Garage rail: car choice + persistence */}
+            <aside className="garage-column">
+              <label className="persist-toggle">
+                <span className="persist-toggle-label">Remember setup in this browser</span>
+                <input
+                  type="checkbox"
+                  checked={saveSetups}
+                  onChange={(e) => toggleSaveSetups(e.target.checked)}
+                />
+                <span className="persist-toggle-switch" aria-hidden="true"></span>
+              </label>
 
-              <SetupInputs
+              <CarSelector carId={carId} onChange={setCarId} apiUrl={API_URL} />
+
+              <TrackSelector trackId={trackId} onChange={selectTrack} apiUrl={API_URL} />
+
+              <LapTimePrediction
                 carClass={carClass}
                 setup={setup}
-                feedback={feedback}
                 conditions={conditions}
-                onSetupChange={setSetup}
-                onFeedbackChange={setFeedback}
-                onConditionsChange={setConditions}
+                track={getTrack(trackId)}
               />
-              
+
+              <SavedSetups
+                setups={savedSetups}
+                currentCarName={car.name}
+                onSave={saveNamedSetup}
+                onLoad={loadNamedSetup}
+                onDelete={deleteNamedSetup}
+              />
+            </aside>
+
+            {/* Center: 3D model stays in view while scrolling, analyze below it */}
+            <div className="model-column">
+              <div className="model-card">
+                <h3 className="model-title">3D Viewport</h3>
+                <ModelViewer modelUrl={car.model} label={car.name} />
+              </div>
+
               <button
                 className="analyze-button"
                 onClick={analyzeSetup}
@@ -198,7 +320,7 @@ function App() {
                 ) : (
                   <>
                     <svg className="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                         d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                     Analyze Setup
@@ -206,17 +328,36 @@ function App() {
                 )}
               </button>
             </div>
-            
-            {/* Right Column: 3D Model */}
-            <div className="model-column">
-              <div className="model-card">
-                <h3 className="model-title">3D Viewport</h3>
-                <ModelViewer carClass={carClass} />
-              </div>
+
+            {/* Setup rail: car setup, feedback, conditions */}
+            <div className="setup-column">
+              <SetupInputs
+                carClass={carClass}
+                setup={setup}
+                feedback={feedback}
+                conditions={conditions}
+                driverInCar={driverInCar}
+                onSetupChange={setSetup}
+                onFeedbackChange={setFeedback}
+                onConditionsChange={setConditions}
+                onDriverInCarChange={setDriverInCar}
+              />
             </div>
           </div>
+        ) : activeTab === 'simulate' ? (
+          <StintSimulator
+            carClass={carClass}
+            carName={car.name}
+            trackId={trackId}
+            setup={setup}
+            conditions={conditions}
+            apiUrl={API_URL}
+            isOnline={isOnline}
+          />
         ) : activeTab === 'results' ? (
           <DiagnosisReport diagnosis={diagnosis} />
+        ) : activeTab === 'reference' ? (
+          <ReferenceLaps apiUrl={API_URL} carId={carId} />
         ) : (
           <TelemetryAnalysis />
         )}

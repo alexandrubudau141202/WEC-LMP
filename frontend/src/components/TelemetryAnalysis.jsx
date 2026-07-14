@@ -7,7 +7,9 @@ export default function TelemetryAnalysis() {
   const [file, setFile] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [report, setReport] = useState(null);
-  
+  const [aiSummary, setAiSummary] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
   const handleFileUpload = (e) => {
     const uploadedFile = e.target.files[0];
     if (uploadedFile) {
@@ -15,16 +17,32 @@ export default function TelemetryAnalysis() {
       analyzeTelemetry(uploadedFile);
     }
   };
-  
+
+  // AI layer: hand the computed report to the backend, which asks Groq for
+  // a race-engineer debrief. Degrades silently when the AI is unavailable.
+  const fetchAiSummary = async (analysis) => {
+    setAiSummary(null);
+    setAiLoading(true);
+    try {
+      const { data } = await axios.post(`${API_URL}/telemetry-summary`, { report: analysis });
+      setAiSummary(data.summary ?? null);
+    } catch (error) {
+      console.error('AI telemetry summary failed:', error);
+      setAiSummary(null);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const analyzeTelemetry = async (telemetryFile) => {
     setIsAnalyzing(true);
-    
+
     try {
       // Parse CSV file
       const text = await telemetryFile.text();
       const lines = text.split('\n');
       const headers = lines[0].split(',');
-      
+
       const data = lines.slice(1).map(line => {
         const values = line.split(',');
         return headers.reduce((obj, header, index) => {
@@ -32,11 +50,12 @@ export default function TelemetryAnalysis() {
           return obj;
         }, {});
       }).filter(row => row[headers[0]]); // Remove empty rows
-      
+
       // Generate analysis
       const analysis = generateTelemetryReport(data, telemetryFile.name);
       setReport(analysis);
-      
+      fetchAiSummary(analysis);
+
     } catch (error) {
       console.error('Telemetry analysis failed:', error);
       alert('Failed to analyze telemetry. Make sure it\'s a valid CSV file.');
@@ -46,8 +65,9 @@ export default function TelemetryAnalysis() {
   };
   
   const generateTelemetryReport = (data, filename) => {
-    // Extract circuit name from filename
-    const circuit = filename.replace('.csv', '').replace('_telemetry', '');
+    // Extract circuit name from filename (handles monza.csv and the
+    // simulator's monza_<car>_stint.csv alike)
+    const circuit = filename.replace('.csv', '').replace('_telemetry', '').replace('_stint', '');
     
     // Calculate key metrics
     const laps = [...new Set(data.map(d => d.Lap))].filter(Boolean);
@@ -140,10 +160,10 @@ export default function TelemetryAnalysis() {
   
   const getSeverityColor = (severity) => {
     switch (severity) {
-      case 'high': return '#ef4444';
-      case 'medium': return '#f59e0b';
-      case 'low': return '#10b981';
-      default: return '#6b7280';
+      case 'high': return '#b3261e';
+      case 'medium': return '#a16207';
+      case 'low': return '#217a53';
+      default: return '#94948d';
     }
   };
   
@@ -227,6 +247,29 @@ export default function TelemetryAnalysis() {
             </div>
           </section>
           
+          {(aiLoading || aiSummary) && (
+            <section className="report-section ai-analysis">
+              <h2 className="report-heading">
+                <svg className="heading-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                AI Race Engineer Debrief
+              </h2>
+              {aiLoading ? (
+                <div className="analyzing-status">
+                  <svg className="spinner" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Writing the stint debrief…
+                </div>
+              ) : (
+                <p className="summary-text">{aiSummary}</p>
+              )}
+            </section>
+          )}
+
           <section className="report-section">
             <h2 className="report-heading">Driver Inputs</h2>
             <div className="telemetry-grid">

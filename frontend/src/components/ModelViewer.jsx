@@ -3,21 +3,21 @@ import { OrbitControls, PerspectiveCamera, useGLTF, Environment } from '@react-t
 import { Suspense, useMemo } from 'react';
 import * as THREE from 'three';
 
-// 3D model per car class. Files live in frontend/public/.
-// To add the LMP2: drop the .glb into frontend/public/ and set its url here.
-const CAR_MODELS = {
-  hypercar: { url: '/porsche_963.glb', label: 'Porsche 963' },
-  lmp2: { url: null, label: 'Oreca 07 — add oreca_07.glb to frontend/public/' },
-  gt3: { url: '/2017_porsche_911_rsr.glb', label: 'Porsche 911 RSR' },
-};
-
 // Loads a glb and auto-fits it: models come in wildly different export
-// scales (the 963 needs ~350x, the RSR much less), so normalize to a
+// scales (the 963 needs ~350x, others much less), so normalize to a
 // ~5-unit car sitting on the ground plane at y = -0.5.
 function CarModel({ url }) {
   const { scene } = useGLTF(url);
 
   const { scale, position } = useMemo(() => {
+    // useGLTF returns the SAME cached scene object on every mount, so the
+    // fit must never depend on leftover state from a previous mount:
+    // normalize the root transform before measuring, and apply the fit to
+    // a wrapper <group> below instead of mutating the scene itself.
+    scene.position.set(0, 0, 0);
+    scene.scale.set(1, 1, 1);
+    scene.updateMatrixWorld(true);
+
     const box = new THREE.Box3().setFromObject(scene);
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z) || 1;
@@ -29,7 +29,13 @@ function CarModel({ url }) {
     };
   }, [scene]);
 
-  return <primitive object={scene} scale={scale} position={position} />;
+  // dispose={null}: without it R3F disposes the cached geometry/materials on
+  // unmount, and switching back to this car would render an empty model.
+  return (
+    <group scale={scale} position={position}>
+      <primitive object={scene} dispose={null} />
+    </group>
+  );
 }
 
 function PlaceholderChassis() {
@@ -41,9 +47,8 @@ function PlaceholderChassis() {
   );
 }
 
-export default function ModelViewer({ carClass = 'hypercar' }) {
-  const model = CAR_MODELS[carClass] ?? CAR_MODELS.hypercar;
-
+// Renders the selected garage car (frontend/src/cars.js supplies the url).
+export default function ModelViewer({ modelUrl, label }) {
   return (
     <div className="model-viewer">
       <div className="viewport-background"></div>
@@ -69,7 +74,7 @@ export default function ModelViewer({ carClass = 'hypercar' }) {
 
         {/* Model with loading fallback — keyed so switching car remounts cleanly */}
         <Suspense fallback={<PlaceholderChassis />}>
-          {model.url ? <CarModel key={model.url} url={model.url} /> : <PlaceholderChassis />}
+          {modelUrl ? <CarModel key={modelUrl} url={modelUrl} /> : <PlaceholderChassis />}
         </Suspense>
 
         {/* Ground plane */}
@@ -80,7 +85,7 @@ export default function ModelViewer({ carClass = 'hypercar' }) {
       </Canvas>
 
       <div className="model-controls-hint">
-        <p>{model.label} • Click and drag to rotate • Scroll to zoom • Right-click to pan</p>
+        <p>{label} • Click and drag to rotate • Scroll to zoom • Right-click to pan</p>
       </div>
     </div>
   );

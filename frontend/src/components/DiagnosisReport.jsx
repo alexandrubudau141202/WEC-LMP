@@ -15,10 +15,10 @@ export default function DiagnosisReport({ diagnosis }) {
   
   const getSeverityColor = (severity) => {
     switch (severity) {
-      case 'high': return '#ef4444';
-      case 'medium': return '#f59e0b';
-      case 'low': return '#10b981';
-      default: return '#6b7280';
+      case 'high': return '#b3261e';
+      case 'medium': return '#a16207';
+      case 'low': return '#217a53';
+      default: return '#94948d';
     }
   };
   
@@ -28,13 +28,13 @@ export default function DiagnosisReport({ diagnosis }) {
     
     if (percent >= 80) {
       label = 'HIGH';
-      color = '#10b981';
+      color = '#217a53';
     } else if (percent >= 60) {
       label = 'MEDIUM';
-      color = '#f59e0b';
+      color = '#a16207';
     } else {
       label = 'LOW';
-      color = '#ef4444';
+      color = '#b3261e';
     }
     
     return { label, color, percent };
