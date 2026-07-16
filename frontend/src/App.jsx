@@ -20,20 +20,51 @@ const API_URL = 'http://localhost:8000';
 // Defaults for the persisted input state. Stored values are merged over
 // these on load, so adding/removing fields here stays backward-compatible
 // with whatever an older visit left in localStorage.
+// Mirrors BASELINE.setup in laptimeModel.js — keep them identical so the
+// prediction card reads zero deltas on a fresh setup.
 const DEFAULT_SETUP = {
   front_ride_height_mm: 45,
   rear_ride_height_mm: 50,
   front_wing_angle_deg: 8,
   rear_wing_angle_deg: 15,
-  brake_bias_percent: 52,
+  brake_bias_percent: 55,
   hybrid_deployment_map: 1,
   tire_pressure: { fl: 1.9, fr: 1.9, rl: 1.9, rr: 1.9 },
-  // Advanced setup
+  // Drivetrain
   coast_diff_percent: 40,
   rear_camber_deg: -3.0,
-  front_wheel_rate_nmm: 200,
-  rear_wheel_rate_nmm: 180,
-  final_drive_ratio: 3.6
+  front_wheel_rate_nmm: 150,
+  rear_wheel_rate_nmm: 135,
+  final_drive_ratio: 3.6,
+  // Alignment
+  front_toe_deg: 0.0,
+  rear_toe_deg: 0.1,
+  front_camber_deg: -2.8,
+  caster_deg: 10.0,
+  // Electronics
+  traction_control: 3,
+  abs_level: 3,
+  ecu_map: 2,
+  // Brakes
+  brake_compound: 2,
+  brake_power_percent: 100,
+  // Mechanical grip
+  front_antiroll_bar: 4,
+  rear_antiroll_bar: 4,
+  steering_ratio: 13.0,
+  bumpstop_rate_n: 1000,
+  front_bumpstop_range_mm: 10,
+  rear_bumpstop_range_mm: 20,
+  diff_preload_nm: 120,
+  // Dampers
+  bump_damping: 20,
+  rebound_damping: 20,
+  fast_bump_damping: 24,
+  fast_rebound_damping: 24,
+  // Aero extras
+  front_splitter: 1,
+  front_brake_ducts: 3,
+  rear_brake_ducts: 3
 };
 
 const DEFAULT_FEEDBACK = {
@@ -86,6 +117,24 @@ function App() {
       // Opting out also wipes what's already stored — next reload starts clean
       ['wec-lmp:car', 'wec-lmp:track', 'wec-lmp:setup', 'wec-lmp:feedback', 'wec-lmp:conditions', 'wec-lmp:driver-in-car']
         .forEach((key) => localStorage.removeItem(key));
+    }
+  };
+
+  // Class-dependent aero ranges (GT3 sits higher, wing in clicks 0-8).
+  // Clamp those fields when the selected car changes class so persisted
+  // prototype values don't land outside the GT3 sliders (and vice versa).
+  const selectCar = (id) => {
+    const nextClass = getCar(id).carClass;
+    setCarId(id);
+    if (nextClass !== carClass) {
+      const gt3 = nextClass === 'gt3';
+      const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+      setSetup({
+        ...setup,
+        front_ride_height_mm: clamp(setup.front_ride_height_mm, gt3 ? 50 : 35, gt3 ? 70 : 60),
+        rear_ride_height_mm: clamp(setup.rear_ride_height_mm, gt3 ? 50 : 40, gt3 ? 80 : 70),
+        rear_wing_angle_deg: clamp(setup.rear_wing_angle_deg, gt3 ? 0 : 10, gt3 ? 8 : 25),
+      });
     }
   };
 
@@ -277,11 +326,12 @@ function App() {
                 <span className="persist-toggle-switch" aria-hidden="true"></span>
               </label>
 
-              <CarSelector carId={carId} onChange={setCarId} apiUrl={API_URL} />
+              <CarSelector carId={carId} onChange={selectCar} apiUrl={API_URL} />
 
               <TrackSelector trackId={trackId} onChange={selectTrack} apiUrl={API_URL} />
 
               <LapTimePrediction
+                carId={carId}
                 carClass={carClass}
                 setup={setup}
                 conditions={conditions}
@@ -332,6 +382,7 @@ function App() {
             {/* Setup rail: car setup, feedback, conditions */}
             <div className="setup-column">
               <SetupInputs
+                carId={carId}
                 carClass={carClass}
                 setup={setup}
                 feedback={feedback}
@@ -346,6 +397,7 @@ function App() {
           </div>
         ) : activeTab === 'simulate' ? (
           <StintSimulator
+            carId={carId}
             carClass={carClass}
             carName={car.name}
             trackId={trackId}

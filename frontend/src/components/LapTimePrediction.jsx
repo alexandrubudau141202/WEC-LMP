@@ -1,22 +1,24 @@
 import React, { useMemo, useState } from 'react';
 import { predictLapTime, rearWingSweep, formatLapTime } from '../laptimeModel';
+import { getCarProfile } from '../carProfiles';
 
 // SVG sweep chart geometry (viewBox units)
 const CHART_W = 260;
 const CHART_H = 88;
 const PAD = { top: 8, right: 10, bottom: 16, left: 10 };
 
-export default function LapTimePrediction({ carClass, setup, conditions, track }) {
+export default function LapTimePrediction({ carId, carClass, setup, conditions, track }) {
   const baseLapS = track?.baseLapS ?? null;
+  const profile = getCarProfile(carId);
 
   const prediction = useMemo(
-    () => predictLapTime(carClass, setup, conditions, baseLapS),
-    [carClass, setup, conditions, baseLapS]
+    () => predictLapTime(carClass, setup, conditions, baseLapS, profile),
+    [carClass, setup, conditions, baseLapS, profile]
   );
 
   const sweep = useMemo(
-    () => rearWingSweep(carClass, setup, conditions, baseLapS),
-    [carClass, setup, conditions, baseLapS]
+    () => rearWingSweep(carClass, setup, conditions, baseLapS, profile),
+    [carClass, setup, conditions, baseLapS, profile]
   );
 
   const { totalSeconds, deltaVsBaseline, contributions } = prediction;

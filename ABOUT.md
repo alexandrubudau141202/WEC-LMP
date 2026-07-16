@@ -10,7 +10,7 @@ A trackside setup-engineering assistant for WEC/IMSA endurance racing. You descr
 - **LMP2** — Oreca 07 spec — no hybrid, corner-speed dependent.
 - **GT3/GTE** — 911 GT3 R, 911 RSR, M4 GT3, 296 GT3, R8 LMS — wing-dominant aero, kerb compliance matters.
 
-Six circuits derived from the telemetry files in `telemetry/`: Monza, Spa, Le Mans, COTA, Fuji, Interlagos — each with a length, a character (high speed / mixed / technical) and a reference lap.
+Ten circuits derived from the telemetry files in `telemetry/`: Monza, Spa, Le Mans, COTA, Fuji, Interlagos, Nürburgring GP, Nürburgring 24h (Nordschleife), Silverstone and Laguna Seca — each with a length, a character (high speed / mixed / technical) and a reference lap.
 
 ## The five tabs
 

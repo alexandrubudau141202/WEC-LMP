@@ -62,6 +62,40 @@ Audi R8 LMS...).
 - ~100-120L fuel capacity, ~1250-1350kg. ABS and traction control available.""",
 }
 
+# Car-specific setup knowledge (distilled from parameters.txt) injected into
+# the debrief prompt when the named car matches — cars are NOT all the same.
+CAR_SETUP_NOTES: dict[str, str] = {
+    "911 GT3 R": """Porsche 911 GT3 R notes: rear-weight bias makes it oversteer-prone —
+prioritize rear downforce (max wing on twisty tracks, minimal at Monza-type circuits).
+27.5 PSI (~1.90 bar) dry tires, TC/ABS around 3. Soft springs (1-2 clicks from minimum)
+with low rear bumpstops fight on-throttle understeer; splitter clicks cost real top speed,
+so balance with rear wing or negative toe instead. Engine Map 8 = max linear power (standard).""",
+    "911 RSR": """Porsche 911 RSR notes: rear-engined — snap oversteer in mid-to-high-speed
+corners is the known trap. Stabilize with rear ride height (rake) and rear wing before
+touching anything else. 27.5 PSI dry; ABS 2-5, TC 1-3. Brake set 1 for hotlaps, 2 for
+races under 2h, 3 for endurance.""",
+    "M4 GT3": """BMW M4 GT3 notes: understeer is the characteristic problem. Fixes in order:
+max/near-max rear wing, increase rake (front as low as possible), full soft springs,
+minimum diff preload, maximum negative camber and caster. TC 2-4, ABS 2-3.""",
+    "296 GT3": """Ferrari 296 GT3 notes: naturally responsive — pros run high TC (up to 9 in
+high-speed corners, ~5 for slow exits), ABS 2 in the dry, ECU Map 2 for linear throttle
+(over default Map 1). Camber maxed (-4.0 front / -3.5 rear), caster maxed, steer ratio
+low (~14), brake bias ~58.4%. Ride heights ~60/58 mm, brake ducts ~4.""",
+    "R8 LMS": """Audi R8 LMS notes: forward-heavy — default bias causes understeer, so move
+brake bias rearward (57.8-59.4%). Mid rear wing (4-5), stiff front / soft rear anti-roll
+bars (e.g. 3/1) to manage turn-in and rear slip under braking. ABS 3-5, TC 3-5.""",
+}
+
+
+def _car_notes(car_name: str | None) -> str:
+    if not car_name:
+        return ""
+    for key, notes in CAR_SETUP_NOTES.items():
+        if key.lower() in car_name.lower():
+            return f"\n{notes}\n"
+    return ""
+
+
 SYSTEM_PROMPT_TEMPLATE = """You are a senior performance engineer for a WEC/IMSA team.
 You are given the output of a deterministic setup-diagnostic engine: the identified
 handling issue, its severity and confidence, the contributing factors it detected,
@@ -127,7 +161,7 @@ async def generate_ai_analysis(
     so the endpoint can degrade gracefully to the template summary.
     """
     system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
-        car_context=CAR_CONTEXT[car_class],
+        car_context=CAR_CONTEXT[car_class] + _car_notes(car_name),
         car_line=(
             f"\nThe specific car is a {car_name} — refer to it by name in the debrief.\n"
             if car_name else ""

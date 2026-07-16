@@ -179,6 +179,7 @@ async def simulate_stint(request: SimulateRequest):
             setup=request.setup,
             conditions=request.conditions,
             laps=request.laps,
+            car_id=request.car_id,
         )
     except simulator.SimulatorError as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail)
@@ -237,16 +238,46 @@ async def get_parameter_info():
     """Get valid parameter ranges for frontend"""
     return {
         "ride_height": {
-            "front": {"min": 35, "max": 60, "unit": "mm", "typical": 45},
-            "rear": {"min": 40, "max": 70, "unit": "mm", "typical": 50}
+            "front": {"min": 35, "max": 60, "unit": "mm", "typical": 45, "gt3": {"min": 50, "max": 70}},
+            "rear": {"min": 40, "max": 70, "unit": "mm", "typical": 50, "gt3": {"min": 50, "max": 80}}
         },
         "wing_angle": {
-            "front": {"min": 5, "max": 15, "unit": "degrees", "typical": 8},
-            "rear": {"min": 10, "max": 25, "unit": "degrees", "typical": 15}
+            "front": {"min": 5, "max": 15, "unit": "degrees", "typical": 8, "note": "prototypes only; GT3 uses splitter"},
+            "rear": {"min": 10, "max": 25, "unit": "degrees", "typical": 15, "gt3": {"min": 0, "max": 8, "unit": "clicks"}}
         },
-        "brake_bias": {"min": 45, "max": 60, "unit": "% front", "typical": 52},
+        "front_splitter": {"min": 0, "max": 3, "note": "GT3 only"},
+        "brake_ducts": {"min": 0, "max": 6, "note": "0 = closed"},
+        "brake_bias": {"min": 48.5, "max": 68.5, "unit": "% front", "typical": 55},
+        "brake_power": {"min": 80, "max": 100, "unit": "%"},
+        "brake_compound": {"min": 1, "max": 4, "options": ["Sprint (~3h)", "Endurance (~12h)", "Wet", "Qualifying"]},
         "hybrid_map": {"min": 1, "max": 3, "options": ["Conservative", "Balanced", "Aggressive"]},
-        "tire_pressure": {"min": 1.5, "max": 2.5, "unit": "bar", "typical": 1.9}
+        "tire_pressure": {"min": 1.5, "max": 2.5, "unit": "bar", "typical": 1.9},
+        "alignment": {
+            "front_toe": {"min": -0.2, "max": 0.2, "unit": "degrees"},
+            "rear_toe": {"min": 0.0, "max": 0.31, "unit": "degrees"},
+            "front_camber": {"min": -4.0, "max": -1.5, "unit": "degrees"},
+            "caster": {"min": 6.1, "max": 13.9, "unit": "degrees", "note": "front only"}
+        },
+        "electronics": {
+            "traction_control": {"min": 0, "max": 10},
+            "abs": {"min": 0, "max": 10},
+            "ecu_map": {"min": 1, "max": 8, "note": "1 aggressive; 2 linear; 3 gradual; 4 slowest dry; 5 pace car; 6-8 rain"}
+        },
+        "mechanical_grip": {
+            "antiroll_bar": {"min": 0, "max": 9},
+            "steering_ratio": {"min": 9, "max": 18},
+            "front_wheel_rate": {"min": 105, "max": 180, "step": 15, "unit": "N/mm"},
+            "rear_wheel_rate": {"min": 90, "max": 165, "step": 15, "unit": "N/mm"},
+            "bumpstop_rate": {"min": 300, "max": 2500, "unit": "N"},
+            "bumpstop_range": {"front": {"min": 0, "max": 32}, "rear": {"min": 0, "max": 60}, "unit": "mm"},
+            "diff_preload": {"min": 0, "max": 300, "unit": "Nm"}
+        },
+        "dampers": {
+            "bump": {"min": 0, "max": 40},
+            "rebound": {"min": 0, "max": 40},
+            "fast_bump": {"min": 0, "max": 49},
+            "fast_rebound": {"min": 0, "max": 49}
+        }
     }
 
 

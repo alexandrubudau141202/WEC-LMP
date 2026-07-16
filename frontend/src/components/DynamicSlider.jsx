@@ -11,19 +11,19 @@ export default function DynamicSlider({
   centerZero = false  // If true, 0 is neutral, +/- values change color
 }) {
   
-  // Calculate color based on value (minimal palette: graphite fill for
-  // plain sliders; muted amber/blue for zero-centered feedback sliders)
+  // Calculate color based on value (DTM dark palette: red fill for plain
+  // sliders; amber/blue for zero-centered feedback sliders)
   const getSliderColor = () => {
     if (!centerZero) {
       return 'var(--accent-primary)';
     }
 
     if (value > 0) {
-      return '#b45309'; // muted amber — positive side
+      return '#fbbf24'; // amber — positive side
     } else if (value < 0) {
-      return '#1d4ed8'; // muted blue — negative side
+      return '#60a5fa'; // blue — negative side
     } else {
-      return '#b3b3ad'; // neutral at zero
+      return 'rgba(255, 255, 255, 0.35)'; // neutral at zero
     }
   };
   
@@ -41,12 +41,13 @@ export default function DynamicSlider({
   const sliderColor = getSliderColor();
   const fillPercentage = getFillPercentage();
   
-  // Create gradient for slider track (light theme: unfilled = hairline gray)
+  // Create gradient for slider track (dark theme: unfilled = white/12 hairline)
+  const unfilled = 'rgba(255, 255, 255, 0.12)';
   const trackGradient = `linear-gradient(to right,
-    ${centerZero ? '#e7e7e4' : sliderColor} 0%,
+    ${centerZero ? unfilled : sliderColor} 0%,
     ${sliderColor} ${fillPercentage}%,
-    #e7e7e4 ${fillPercentage}%,
-    #e7e7e4 100%)`;
+    ${unfilled} ${fillPercentage}%,
+    ${unfilled} 100%)`;
   
   return (
     <div className="dynamic-slider-container">

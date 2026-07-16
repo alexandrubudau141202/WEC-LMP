@@ -25,12 +25,12 @@ class TirePressure(BaseModel):
 
 
 class Setup(BaseModel):
-    """LMP Hypercar setup configuration"""
-    front_ride_height_mm: float = Field(ge=35, le=60, description="Front ride height (mm)")
-    rear_ride_height_mm: float = Field(ge=40, le=70, description="Rear ride height (mm)")
-    front_wing_angle_deg: float = Field(ge=5, le=15, description="Front wing angle (degrees)")
-    rear_wing_angle_deg: float = Field(ge=10, le=25, description="Rear wing angle (degrees)")
-    brake_bias_percent: float = Field(ge=45, le=60, description="Brake bias % front")
+    """Car setup configuration (all classes; GT3 uses wing clicks 0-8)"""
+    front_ride_height_mm: float = Field(ge=35, le=70, description="Front ride height (mm; GT3 50-70)")
+    rear_ride_height_mm: float = Field(ge=40, le=80, description="Rear ride height (mm; GT3 50-80)")
+    front_wing_angle_deg: float = Field(ge=5, le=15, description="Front wing angle (degrees, prototypes)")
+    rear_wing_angle_deg: float = Field(ge=0, le=25, description="Rear wing: degrees 10-25 (prototypes) or clicks 0-8 (GT3)")
+    brake_bias_percent: float = Field(ge=45, le=68.5, description="Brake bias % front (48.5-68.5)")
     hybrid_deployment_map: int = Field(ge=1, le=3, description="Hybrid deployment aggressiveness (1-3, hypercar only)")
     tire_pressure: TirePressure
 
@@ -44,17 +44,65 @@ class Setup(BaseModel):
         description="Rear camber (degrees, negative improves cornering grip)"
     )
     front_wheel_rate_nmm: float = Field(
-        default=200, ge=100, le=400,
-        description="Front wheel rate (N/mm, higher = stiffer)"
+        default=150, ge=90, le=400,
+        description="Front wheel rate (N/mm; UI range 105-180 step 15)"
     )
     rear_wheel_rate_nmm: float = Field(
-        default=180, ge=100, le=400,
-        description="Rear wheel rate (N/mm, higher = stiffer)"
+        default=135, ge=90, le=400,
+        description="Rear wheel rate (N/mm; UI range 90-165 step 15)"
     )
     final_drive_ratio: float = Field(
         default=3.6, ge=2.8, le=4.8,
         description="Final drive ratio (higher = shorter gearing, more acceleration)"
     )
+
+    # Alignment
+    front_toe_deg: float = Field(default=0.0, ge=-0.2, le=0.2, description="Front toe (degrees)")
+    rear_toe_deg: float = Field(default=0.1, ge=0.0, le=0.31, description="Rear toe (degrees)")
+    front_camber_deg: float = Field(default=-2.8, ge=-4.0, le=-1.5, description="Front camber (degrees)")
+    caster_deg: float = Field(default=10.0, ge=6.1, le=13.9, description="Caster (degrees, front only)")
+
+    # Electronics
+    traction_control: int = Field(default=3, ge=0, le=10, description="TC level (0 = off)")
+    abs_level: int = Field(default=3, ge=0, le=10, description="ABS level (0 = off)")
+    ecu_map: int = Field(
+        default=2, ge=1, le=8,
+        description="ECU map: 1 most aggressive; 2 linear; 3 gradual on throttle; "
+                    "4 slowest dry; 5 pace car; 6-8 rain (6 highest consumption)"
+    )
+
+    # Brakes
+    brake_compound: int = Field(
+        default=2, ge=1, le=4,
+        description="Pad compound: 1 sprint (~3h), 2 endurance (~12h), 3 wet, 4 qualifying"
+    )
+    brake_power_percent: float = Field(default=100, ge=80, le=100, description="Brake power %")
+
+    # Mechanical grip
+    front_antiroll_bar: int = Field(default=4, ge=0, le=9, description="Front anti-roll bar stiffness")
+    rear_antiroll_bar: int = Field(default=4, ge=0, le=9, description="Rear anti-roll bar stiffness")
+    steering_ratio: float = Field(default=13.0, ge=9.0, le=18.0, description="Steering ratio")
+    bumpstop_rate_n: float = Field(
+        default=1000, ge=300, le=2500,
+        description="Bumpstop rate (N) — secondary spring resistance at travel limit"
+    )
+    front_bumpstop_range_mm: float = Field(default=10, ge=0, le=32, description="Front bumpstop range (0 = softest engagement)")
+    rear_bumpstop_range_mm: float = Field(default=20, ge=0, le=60, description="Rear bumpstop range (0 = softest engagement)")
+    diff_preload_nm: float = Field(
+        default=120, ge=0, le=300,
+        description="Diff preload (Nm): 0 = wheels rotate in sync, 300 = max desync"
+    )
+
+    # Dampers
+    bump_damping: int = Field(default=20, ge=0, le=40, description="Slow bump (compression)")
+    rebound_damping: int = Field(default=20, ge=0, le=40, description="Slow rebound (extension)")
+    fast_bump_damping: int = Field(default=24, ge=0, le=49, description="Fast bump")
+    fast_rebound_damping: int = Field(default=24, ge=0, le=49, description="Fast rebound")
+
+    # Aero extras (GT3-oriented)
+    front_splitter: int = Field(default=1, ge=0, le=3, description="Front splitter position (GT3)")
+    front_brake_ducts: int = Field(default=3, ge=0, le=6, description="Front brake ducts (0 = closed)")
+    rear_brake_ducts: int = Field(default=3, ge=0, le=6, description="Rear brake ducts (0 = closed)")
 
 
 class DriverFeedback(BaseModel):
@@ -122,6 +170,10 @@ class SimulateRequest(BaseModel):
     """Request to simulate one stint on a track"""
     car_class: CarClass = Field(default="hypercar")
     car_name: Optional[str] = Field(default=None, max_length=80)
+    car_id: Optional[str] = Field(
+        default=None, max_length=40,
+        description="Garage car id — selects the per-car setup profile"
+    )
     track_id: str = Field(max_length=40, description="Track id (telemetry CSV basename)")
     laps: int = Field(default=15, ge=3, le=40, description="Stint length in laps")
     setup: Setup

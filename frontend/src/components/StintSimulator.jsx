@@ -3,19 +3,21 @@ import axios from 'axios';
 import { getTrack, TRACK_TYPE_LABELS } from '../tracks';
 import { formatLapTime } from '../laptimeModel';
 
-const STINT_LAPS = 15;
-
 // Lap chart geometry (viewBox units)
 const CH_W = 640;
 const CH_H = 180;
 const PAD = { top: 14, right: 16, bottom: 24, left: 46 };
 
-export default function StintSimulator({ carClass, carName, trackId, setup, conditions, apiUrl, isOnline }) {
+export default function StintSimulator({ carId, carClass, carName, trackId, setup, conditions, apiUrl, isOnline }) {
   const track = getTrack(trackId);
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [hover, setHover] = useState(null);
+
+  // Stint plan — the engineer picks how long to run and how much fuel to load
+  const [stintLaps, setStintLaps] = useState(15);
+  const [stintFuel, setStintFuel] = useState(conditions.fuel_load_kg);
 
   const runStint = async () => {
     setIsRunning(true);
@@ -24,10 +26,11 @@ export default function StintSimulator({ carClass, carName, trackId, setup, cond
       const { data } = await axios.post(`${apiUrl}/simulate`, {
         car_class: carClass,
         car_name: carName,
+        car_id: carId,
         track_id: trackId,
-        laps: STINT_LAPS,
+        laps: stintLaps,
         setup,
-        conditions,
+        conditions: { ...conditions, fuel_load_kg: stintFuel },
       });
       setResult(data);
     } catch (e) {
@@ -75,7 +78,7 @@ export default function StintSimulator({ carClass, carName, trackId, setup, cond
   };
 
   const fuelUsed = result
-    ? (conditions.fuel_load_kg - result.laps[result.laps.length - 1].fuel_remaining_kg).toFixed(1)
+    ? (stintFuel - result.laps[result.laps.length - 1].fuel_remaining_kg).toFixed(1)
     : null;
   const avgLap = result
     ? result.laps.reduce((s, l) => s + l.lap_time_s, 0) / result.laps.length
@@ -108,19 +111,37 @@ export default function StintSimulator({ carClass, carName, trackId, setup, cond
             </span>
           </div>
           <div className="stint-chip">
-            <span className="stint-chip-label">Stint</span>
-            <span className="stint-chip-value">{STINT_LAPS} laps · {conditions.fuel_load_kg} kg fuel</span>
-          </div>
-          <div className="stint-chip">
             <span className="stint-chip-label">Track temp</span>
             <span className="stint-chip-value">{conditions.track_temp_c}°C</span>
           </div>
+          <label className="stint-chip stint-chip-input">
+            <span className="stint-chip-label">Laps to run</span>
+            <input
+              type="number"
+              min="3"
+              max="40"
+              step="1"
+              value={stintLaps}
+              onChange={(e) => setStintLaps(Math.min(40, Math.max(3, parseInt(e.target.value) || 3)))}
+            />
+          </label>
+          <label className="stint-chip stint-chip-input">
+            <span className="stint-chip-label">Fuel load (kg)</span>
+            <input
+              type="number"
+              min="20"
+              max="90"
+              step="1"
+              value={stintFuel}
+              onChange={(e) => setStintFuel(Math.min(90, Math.max(20, parseFloat(e.target.value) || 20)))}
+            />
+          </label>
         </div>
 
         <p className="stint-hint">
-          Runs {STINT_LAPS} laps with the setup dialed in on the Input Scenario tab
-          (car, track, fuel and temperatures included). Change the setup there to
-          simulate a different stint.
+          Runs the stint with the setup dialed in on the Input Scenario tab. Pick
+          the stint length and fuel load here — the fuel mass costs straight-line
+          speed early on and frees up as it burns off.
         </p>
 
         <button
@@ -142,7 +163,7 @@ export default function StintSimulator({ carClass, carName, trackId, setup, cond
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              Run {STINT_LAPS}-Lap Stint
+              Run {stintLaps}-Lap Stint
             </>
           )}
         </button>
@@ -193,7 +214,7 @@ export default function StintSimulator({ carClass, carName, trackId, setup, cond
               onMouseLeave={() => setHover(null)}
             >
               <svg viewBox={`0 0 ${CH_W} ${CH_H}`} role="img"
-                aria-label={`Lap times across the ${STINT_LAPS}-lap stint`}>
+                aria-label={`Lap times across the ${result.laps.length}-lap stint`}>
                 {/* recessive grid: min/max time hairlines */}
                 {[chart.yLo, chart.yHi].map((v) => (
                   <g key={v}>

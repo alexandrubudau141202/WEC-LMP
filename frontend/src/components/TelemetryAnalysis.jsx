@@ -158,12 +158,13 @@ export default function TelemetryAnalysis() {
     return 'Rear-biased';
   };
   
+  // Severity palette tuned for the dark theme
   const getSeverityColor = (severity) => {
     switch (severity) {
-      case 'high': return '#b3261e';
-      case 'medium': return '#a16207';
-      case 'low': return '#217a53';
-      default: return '#94948d';
+      case 'high': return '#ff5c54';
+      case 'medium': return '#fbbf24';
+      case 'low': return '#34d399';
+      default: return 'rgba(255, 255, 255, 0.4)';
     }
   };
   
